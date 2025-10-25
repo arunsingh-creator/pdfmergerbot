@@ -12,10 +12,14 @@ from pyrogram.types import (
 )
 
 # ============= CONFIGURATION =============
-API_ID = "YOUR_API_ID"
-API_HASH = "YOUR_API_HASH"
-BOT_TOKEN = "YOUR_BOT_TOKEN"
+API_ID = os.getenv("API_ID", "YOUR_API_ID")
+API_HASH = os.getenv("API_HASH", "YOUR_API_HASH")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "YOUR_BOT_TOKEN")
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
+# Validate credentials
+if API_ID == "YOUR_API_ID" or API_HASH == "YOUR_API_HASH" or BOT_TOKEN == "YOUR_BOT_TOKEN":
+    raise ValueError("Please set API_ID, API_HASH, and BOT_TOKEN environment variables!")
+
 
 # ============= LOGGING SETUP =============
 logging.basicConfig(
