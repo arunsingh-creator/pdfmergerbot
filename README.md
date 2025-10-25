@@ -72,11 +72,6 @@ MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB (adjustable)
 | Remove Page | ~1 second |
 | Process 100+ pages | < 5 seconds |
 
-## 🐛 Debugging
-
-Enable verbose logging to see all operations:
-- Console output
-- Logs saved to `pdf_bot.log`
 
 ## 📝 License
 
@@ -95,11 +90,4 @@ If you found this helpful, give it a star! ⭐
 Made with ❤️ using Pyrogram and PyMuPDF
 ```
 
-**Short Description (for GitHub "About" section):**
-```
-⚡ Fast Telegram bot for merging PDFs, removing pages & PDF management. Built with Pyrogram & PyMuPDF. Lightning-fast processing!
-```
 
-**Topics/Tags:**
-```
-telegram-bot, pdf, pdf-merger, pyrogram, pymupdf, python, pdf-tools, telegram, bot, pdf-manipulation
