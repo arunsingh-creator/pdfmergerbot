@@ -2,7 +2,7 @@ import os
 import logging
 import tempfile
 from typing import Optional
-import fitz  # PyMuPDF
+import fitz
 from pyrogram import Client, filters
 from pyrogram.types import (
     Message,
@@ -16,7 +16,6 @@ API_ID = os.getenv("API_ID", "YOUR_API_ID")
 API_HASH = os.getenv("API_HASH", "YOUR_API_HASH")
 BOT_TOKEN = os.getenv("BOT_TOKEN", "YOUR_BOT_TOKEN")
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
-# Validate credentials
 if API_ID == "YOUR_API_ID" or API_HASH == "YOUR_API_HASH" or BOT_TOKEN == "YOUR_BOT_TOKEN":
     raise ValueError("Please set API_ID, API_HASH, and BOT_TOKEN environment variables!")
 
@@ -28,10 +27,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ============= USER SESSION MANAGEMENT =============
+
 user_sessions = {}
-
-
 class UserSession:
     """Manages user's PDF editing session"""
     def __init__(self, user_id: int):
@@ -62,20 +59,18 @@ def get_session(user_id: int) -> UserSession:
         user_sessions[user_id] = UserSession(user_id)
     return user_sessions[user_id]
 
-
-# ============= UI HELPERS =============
 def create_main_menu(pdf_count: int) -> InlineKeyboardMarkup:
     """Create dynamic menu based on PDF count"""
     buttons = [[InlineKeyboardButton("➕ Add Another PDF", callback_data="add_pdf")]]
     
     if pdf_count == 1:
         buttons.extend([
-            [InlineKeyboardButton("✂️ Remove a Page", callback_data="remove_page")],
+            [InlineKeyboardButton("✂️ Remove a PDF", callback_data="remove_page")],
             [InlineKeyboardButton("✅ Finish & Download", callback_data="finish")]
         ])
     elif pdf_count > 1:
         buttons.extend([
-            [InlineKeyboardButton("✂️ Remove Page (Last PDF)", callback_data="remove_page")],
+            [InlineKeyboardButton("✂️ Remove PDF (Last PDF)", callback_data="remove_page")],
             [InlineKeyboardButton("🔗 Merge All PDFs", callback_data="merge_pdfs")],
             [InlineKeyboardButton("🔄 Reset All", callback_data="reset")]
         ])
@@ -84,12 +79,11 @@ def create_main_menu(pdf_count: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(buttons)
 
 
-# ============= PDF OPERATIONS (PyMuPDF - FAST!) =============
 def remove_page_from_pdf(input_path: str, output_path: str, page_num: int) -> bool:
     """Remove a specific page from PDF"""
     try:
         doc = fitz.open(input_path)
-        doc.delete_page(page_num - 1)  # PyMuPDF uses 0-based indexing
+        doc.delete_page(page_num - 1)  
         doc.save(output_path, garbage=4, deflate=True)
         doc.close()
         return True
@@ -135,7 +129,6 @@ def get_pdf_size_mb(pdf_path: str) -> float:
         return 0.0
 
 
-# ============= BOT INITIALIZATION =============
 app = Client(
     "pdf_merger_bot",
     api_id=API_ID,
@@ -143,8 +136,6 @@ app = Client(
     bot_token=BOT_TOKEN
 )
 
-
-# ============= COMMAND HANDLERS =============
 @app.on_message(filters.command("start"))
 async def start_command(client: Client, message: Message):
     """Handle /start command"""
@@ -184,7 +175,7 @@ async def help_command(client: Client, message: Message):
         "1️⃣ Send a PDF file\n"
         "2️⃣ Choose an option:\n"
         "   • Add more PDFs\n"
-        "   • Remove pages\n"
+        "   • Remove PDF\n"
         "   • Merge PDFs\n"
         "3️⃣ Download your result\n\n"
         "**Commands:**\n"
@@ -193,8 +184,6 @@ async def help_command(client: Client, message: Message):
         "/help - Show this message"
     )
 
-
-# ============= DOCUMENT HANDLER =============
 @app.on_message(filters.document)
 async def handle_document(client: Client, message: Message):
     """Handle incoming PDF documents"""
@@ -203,12 +192,12 @@ async def handle_document(client: Client, message: Message):
     if session.state not in ["waiting_pdf", "idle"]:
         return
     
-    # Check if it's a PDF
+
     if message.document.mime_type != "application/pdf":
         await message.reply_text("❗ Please send a valid PDF document.")
         return
     
-    # Check file size
+
     if message.document.file_size > MAX_FILE_SIZE:
         await message.reply_text(
             f"❗ File too large. Maximum size is {MAX_FILE_SIZE // (1024 * 1024)}MB."
@@ -218,7 +207,6 @@ async def handle_document(client: Client, message: Message):
     status_msg = await message.reply_text("⏳ Downloading PDF...")
     
     try:
-        # Download file
         temp_dir = tempfile.gettempdir()
         file_path = os.path.join(
             temp_dir,
@@ -227,7 +215,7 @@ async def handle_document(client: Client, message: Message):
         
         await message.download(file_path)
         
-        # Verify PDF
+
         page_count = get_pdf_page_count(file_path)
         if page_count is None:
             await status_msg.edit_text("❗ Invalid or corrupted PDF file.")
@@ -251,8 +239,6 @@ async def handle_document(client: Client, message: Message):
         logger.error(f"Error handling document: {e}")
         await status_msg.edit_text("❗ Error processing PDF. Please try again.")
 
-
-# ============= CALLBACK QUERY HANDLER =============
 @app.on_callback_query()
 async def handle_callback(client: Client, callback: CallbackQuery):
     """Handle button callbacks"""
@@ -302,7 +288,6 @@ async def handle_callback(client: Client, callback: CallbackQuery):
         )
         
         if merge_pdfs(session.pdfs, output_path):
-            # Clean up old files
             for pdf in session.pdfs:
                 os.remove(pdf)
             
@@ -361,9 +346,7 @@ async def handle_callback(client: Client, callback: CallbackQuery):
         )
     
     await callback.answer()
-
-
-# ============= TEXT MESSAGE HANDLER =============
+    
 @app.on_message(filters.text)
 async def handle_text(client: Client, message: Message):
     """Handle text input for page number"""
@@ -405,7 +388,7 @@ async def handle_text(client: Client, message: Message):
             file_size = get_pdf_size_mb(output_path)
             
             await status_msg.edit_text(
-                f"✅ **Page {page_num} Removed!**\n\n"
+                f"✅ **PDF {page_num} Removed!**\n\n"
                 f"📄 Pages Remaining: {new_page_count}\n"
                 f"💾 Size: {file_size} MB\n\n"
                 "Choose an option:",
