@@ -88,6 +88,3 @@ If you found this helpful, give it a star! ⭐
 ---
 
 Made with ❤️ using Pyrogram and PyMuPDF
-```
-
-
