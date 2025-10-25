@@ -16,7 +16,7 @@ A fast and efficient Telegram bot for merging PDFs, removing pages, and managing
 
 ### Prerequisites
 ```bash
-pip install pyrogram tgcrypto PyMuPDF
+pip install pyrofork tgcrypto PyMuPDF
 ```
 
 ### Setup
@@ -34,7 +34,7 @@ BOT_TOKEN = "YOUR_BOT_TOKEN"
 
 3. Run the bot:
 ```bash
-python pdf_bot.py
+python main.py
 ```
 
 ## 📖 Usage
