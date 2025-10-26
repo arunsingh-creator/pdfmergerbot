@@ -256,119 +256,132 @@ async def handle_callback(client: Client, callback: CallbackQuery):
     session = get_session(callback.from_user.id)
     action = callback.data
     
-    if action == "add_pdf":
-        session.state = "waiting_pdf"
-        await callback.message.edit_text(
-            "📄 Send another PDF file:",
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("❌ Cancel", callback_data="cancel")
-            ]])
-        )
-    
-    elif action == "remove_page":
-        if not session.pdfs:
-            await callback.answer("No PDFs available!", show_alert=True)
-            return
+    try:
+        if action == "add_pdf":
+            await callback.answer()
+            session.state = "waiting_pdf"
+            await callback.message.edit_text(
+                "📄 Send another PDF file:",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("❌ Cancel", callback_data="cancel")
+                ]])
+            )
         
-        pdf_path = session.pdfs[-1]
-        page_count = get_pdf_page_count(pdf_path)
-        
-        if page_count is None:
-            await callback.answer("Error reading PDF!", show_alert=True)
-            return
-        
-        if page_count <= 1:
-            await callback.answer("Cannot remove the only page in PDF!", show_alert=True)
-            return
-        
-        session.state = "waiting_page_number"
-        session.temp_data['page_count'] = page_count
-        
-        await callback.message.edit_text(
-            f"✂️ **Remove a Page**\n\n"
-            f"PDF has {page_count} pages.\n"
-            f"Enter the page number to remove (1-{page_count}):"
-        )
-    
-    elif action == "merge_pdfs":
-        if len(session.pdfs) < 2:
-            await callback.answer("Need at least 2 PDFs to merge!", show_alert=True)
-            return
-        
-        await callback.message.edit_text("🔄 Merging PDFs... (Fast with PyMuPDF)")
-        
-        output_path = os.path.join(
-            tempfile.gettempdir(),
-            f"merged_{callback.from_user.id}.pdf"
-        )
-        
-        if merge_pdfs(session.pdfs, output_path):
-            # Clean up old PDFs
-            for pdf in session.pdfs:
-                try:
-                    os.remove(pdf)
-                except:
-                    pass
+        elif action == "remove_page":
+            if not session.pdfs:
+                await callback.answer("No PDFs available!", show_alert=True)
+                return
             
-            session.pdfs = [output_path]
-            session.is_merged = True  # Mark as merged
-            page_count = get_pdf_page_count(output_path)
-            file_size = get_pdf_size_mb(output_path)
+            pdf_path = session.pdfs[-1]
+            page_count = get_pdf_page_count(pdf_path)
+            
+            if page_count is None:
+                await callback.answer("Error reading PDF!", show_alert=True)
+                return
+            
+            if page_count <= 1:
+                await callback.answer("Cannot remove the only page in PDF!", show_alert=True)
+                return
+            
+            await callback.answer()
+            session.state = "waiting_page_number"
+            session.temp_data['page_count'] = page_count
             
             await callback.message.edit_text(
-                f"✅ **PDFs Merged Successfully!**\n\n"
-                f"📄 Total Pages: {page_count}\n"
-                f"💾 Size: {file_size} MB\n\n"
-                "Your merged PDF is ready to download!",
-                reply_markup=create_main_menu(1, is_merged=True)
+                f"✂️ **Remove a Page**\n\n"
+                f"PDF has {page_count} pages.\n"
+                f"Enter the page number to remove (1-{page_count}):"
             )
-        else:
+        
+        elif action == "merge_pdfs":
+            if len(session.pdfs) < 2:
+                await callback.answer("Need at least 2 PDFs to merge!", show_alert=True)
+                return
+            
+            await callback.answer("Merging PDFs...")
+            await callback.message.edit_text("🔄 Merging PDFs... (Fast with PyMuPDF)")
+            
+            output_path = os.path.join(
+                tempfile.gettempdir(),
+                f"merged_{callback.from_user.id}.pdf"
+            )
+            
+            if merge_pdfs(session.pdfs, output_path):
+                # Clean up old PDFs
+                for pdf in session.pdfs:
+                    try:
+                        os.remove(pdf)
+                    except:
+                        pass
+                
+                session.pdfs = [output_path]
+                session.is_merged = True  # Mark as merged
+                page_count = get_pdf_page_count(output_path)
+                file_size = get_pdf_size_mb(output_path)
+                
+                await callback.message.edit_text(
+                    f"✅ **PDFs Merged Successfully!**\n\n"
+                    f"📄 Total Pages: {page_count}\n"
+                    f"💾 Size: {file_size} MB\n\n"
+                    "Your merged PDF is ready to download!",
+                    reply_markup=create_main_menu(1, is_merged=True)
+                )
+            else:
+                await callback.message.edit_text(
+                    "❗ Error merging PDFs. Please try again.",
+                    reply_markup=create_main_menu(len(session.pdfs), session.is_merged)
+                )
+        
+        elif action == "reset":
+            await callback.answer("Resetting...")
+            session.clear()
+            session.state = "waiting_pdf"
             await callback.message.edit_text(
-                "❗ Error merging PDFs. Please try again.",
-                reply_markup=create_main_menu(len(session.pdfs), session.is_merged)
+                "🔄 Reset complete.\n"
+                "📄 Send a PDF to start over."
             )
-    
-    elif action == "reset":
-        session.clear()
-        session.state = "waiting_pdf"
-        await callback.message.edit_text(
-            "🔄 Reset complete.\n"
-            "📄 Send a PDF to start over."
-        )
-    
-    elif action == "finish":
-        if not session.pdfs:
-            await callback.answer("No PDF available!", show_alert=True)
-            return
         
-        await callback.message.edit_text("📤 Preparing your PDF...")
+        elif action == "finish":
+            if not session.pdfs:
+                await callback.answer("No PDF available!", show_alert=True)
+                return
+            
+            await callback.answer("Preparing your PDF...")
+            await callback.message.edit_text("📤 Preparing your PDF...")
+            
+            try:
+                pdf_name = "merged_document.pdf" if session.is_merged else "document.pdf"
+                
+                await client.send_document(
+                    chat_id=callback.message.chat.id,
+                    document=session.pdfs[0],
+                    caption="✅ Here's your PDF!",
+                    file_name=pdf_name
+                )
+                
+                session.clear()
+                await callback.message.edit_text(
+                    "✅ Done! Use /start to create another PDF."
+                )
+            except Exception as e:
+                logger.error(f"Error sending document: {e}")
+                await callback.message.edit_text("❗ Error sending PDF. Please try again.")
         
-        try:
-            pdf_name = "merged_document.pdf" if session.is_merged else "document.pdf"
-            
-            await client.send_document(
-                chat_id=callback.message.chat.id,
-                document=session.pdfs[0],
-                caption="✅ Here's your PDF!",
-                file_name=pdf_name
-            )
-            
+        elif action == "cancel":
+            await callback.answer("Cancelled")
             session.clear()
             await callback.message.edit_text(
-                "✅ Done! Use /start to create another PDF."
+                "❌ Operation cancelled.\n"
+                "Use /start to begin again."
             )
-        except Exception as e:
-            logger.error(f"Error sending document: {e}")
-            await callback.message.edit_text("❗ Error sending PDF. Please try again.")
     
-    elif action == "cancel":
-        session.clear()
-        await callback.message.edit_text(
-            "❌ Operation cancelled.\n"
-            "Use /start to begin again."
-        )
-    
-    await callback.answer()
+    except Exception as e:
+        logger.error(f"Error in callback handler: {e}")
+        # Try to answer the callback if we haven't already
+        try:
+            await callback.answer("An error occurred", show_alert=True)
+        except:
+            pass
     
 @app.on_message(filters.text)
 async def handle_text(client: Client, message: Message):
