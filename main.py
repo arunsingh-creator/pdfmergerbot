@@ -36,9 +36,11 @@ class UserSession:
         self.pdfs = []
         self.state = "idle"
         self.temp_data = {}
+        self.is_merged = False  # Track if PDFs have been merged
     
     def add_pdf(self, path: str):
         self.pdfs.append(path)
+        self.is_merged = False  # Reset merge flag when adding new PDFs
     
     def clear(self):
         """Clean up all temporary files"""
@@ -51,6 +53,7 @@ class UserSession:
         self.pdfs.clear()
         self.temp_data.clear()
         self.state = "idle"
+        self.is_merged = False
 
 
 def get_session(user_id: int) -> UserSession:
@@ -59,21 +62,32 @@ def get_session(user_id: int) -> UserSession:
         user_sessions[user_id] = UserSession(user_id)
     return user_sessions[user_id]
 
-def create_main_menu(pdf_count: int) -> InlineKeyboardMarkup:
-    """Create dynamic menu based on PDF count"""
-    buttons = [[InlineKeyboardButton("➕ Add Another PDF", callback_data="add_pdf")]]
+def create_main_menu(pdf_count: int, is_merged: bool = False) -> InlineKeyboardMarkup:
+    """Create dynamic menu based on PDF count and merge status"""
+    buttons = []
     
-    if pdf_count == 1:
+    if is_merged:
+        # After merging, show download and reset options
         buttons.extend([
-            [InlineKeyboardButton("✂️ Remove a PDF", callback_data="remove_page")],
-            [InlineKeyboardButton("✅ Finish & Download", callback_data="finish")]
+            [InlineKeyboardButton("📥 Download Merged PDF", callback_data="finish")],
+            [InlineKeyboardButton("✂️ Remove Pages", callback_data="remove_page")],
+            [InlineKeyboardButton("🔄 Start Over", callback_data="reset")]
+        ])
+    elif pdf_count == 1:
+        buttons.extend([
+            [InlineKeyboardButton("➕ Add Another PDF", callback_data="add_pdf")],
+            [InlineKeyboardButton("✂️ Remove Pages", callback_data="remove_page")],
+            [InlineKeyboardButton("📥 Download PDF", callback_data="finish")]
         ])
     elif pdf_count > 1:
         buttons.extend([
-            [InlineKeyboardButton("✂️ Remove PDF (Last PDF)", callback_data="remove_page")],
+            [InlineKeyboardButton("➕ Add More PDFs", callback_data="add_pdf")],
+            [InlineKeyboardButton("✂️ Remove Pages (Last PDF)", callback_data="remove_page")],
             [InlineKeyboardButton("🔗 Merge All PDFs", callback_data="merge_pdfs")],
             [InlineKeyboardButton("🔄 Reset All", callback_data="reset")]
         ])
+    else:
+        buttons.append([InlineKeyboardButton("➕ Add PDF", callback_data="add_pdf")])
     
     buttons.append([InlineKeyboardButton("❌ Cancel", callback_data="cancel")])
     return InlineKeyboardMarkup(buttons)
@@ -175,7 +189,7 @@ async def help_command(client: Client, message: Message):
         "1️⃣ Send a PDF file\n"
         "2️⃣ Choose an option:\n"
         "   • Add more PDFs\n"
-        "   • Remove PDF\n"
+        "   • Remove pages\n"
         "   • Merge PDFs\n"
         "3️⃣ Download your result\n\n"
         "**Commands:**\n"
@@ -192,12 +206,10 @@ async def handle_document(client: Client, message: Message):
     if session.state not in ["waiting_pdf", "idle"]:
         return
     
-
     if message.document.mime_type != "application/pdf":
         await message.reply_text("❗ Please send a valid PDF document.")
         return
     
-
     if message.document.file_size > MAX_FILE_SIZE:
         await message.reply_text(
             f"❗ File too large. Maximum size is {MAX_FILE_SIZE // (1024 * 1024)}MB."
@@ -215,7 +227,6 @@ async def handle_document(client: Client, message: Message):
         
         await message.download(file_path)
         
-
         page_count = get_pdf_page_count(file_path)
         if page_count is None:
             await status_msg.edit_text("❗ Invalid or corrupted PDF file.")
@@ -232,7 +243,7 @@ async def handle_document(client: Client, message: Message):
             f"💾 Size: {file_size} MB\n"
             f"📊 Total PDFs: {len(session.pdfs)}\n\n"
             "Choose an option:",
-            reply_markup=create_main_menu(len(session.pdfs))
+            reply_markup=create_main_menu(len(session.pdfs), session.is_merged)
         )
     
     except Exception as e:
@@ -266,6 +277,10 @@ async def handle_callback(client: Client, callback: CallbackQuery):
             await callback.answer("Error reading PDF!", show_alert=True)
             return
         
+        if page_count <= 1:
+            await callback.answer("Cannot remove the only page in PDF!", show_alert=True)
+            return
+        
         session.state = "waiting_page_number"
         session.temp_data['page_count'] = page_count
         
@@ -288,10 +303,15 @@ async def handle_callback(client: Client, callback: CallbackQuery):
         )
         
         if merge_pdfs(session.pdfs, output_path):
+            # Clean up old PDFs
             for pdf in session.pdfs:
-                os.remove(pdf)
+                try:
+                    os.remove(pdf)
+                except:
+                    pass
             
             session.pdfs = [output_path]
+            session.is_merged = True  # Mark as merged
             page_count = get_pdf_page_count(output_path)
             file_size = get_pdf_size_mb(output_path)
             
@@ -299,13 +319,13 @@ async def handle_callback(client: Client, callback: CallbackQuery):
                 f"✅ **PDFs Merged Successfully!**\n\n"
                 f"📄 Total Pages: {page_count}\n"
                 f"💾 Size: {file_size} MB\n\n"
-                "Choose an option:",
-                reply_markup=create_main_menu(1)
+                "Your merged PDF is ready to download!",
+                reply_markup=create_main_menu(1, is_merged=True)
             )
         else:
             await callback.message.edit_text(
                 "❗ Error merging PDFs. Please try again.",
-                reply_markup=create_main_menu(len(session.pdfs))
+                reply_markup=create_main_menu(len(session.pdfs), session.is_merged)
             )
     
     elif action == "reset":
@@ -324,10 +344,13 @@ async def handle_callback(client: Client, callback: CallbackQuery):
         await callback.message.edit_text("📤 Preparing your PDF...")
         
         try:
+            pdf_name = "merged_document.pdf" if session.is_merged else "document.pdf"
+            
             await client.send_document(
                 chat_id=callback.message.chat.id,
                 document=session.pdfs[0],
-                caption="✅ Here's your PDF!"
+                caption="✅ Here's your PDF!",
+                file_name=pdf_name
             )
             
             session.clear()
@@ -388,11 +411,11 @@ async def handle_text(client: Client, message: Message):
             file_size = get_pdf_size_mb(output_path)
             
             await status_msg.edit_text(
-                f"✅ **PDF {page_num} Removed!**\n\n"
+                f"✅ **Page {page_num} Removed!**\n\n"
                 f"📄 Pages Remaining: {new_page_count}\n"
                 f"💾 Size: {file_size} MB\n\n"
                 "Choose an option:",
-                reply_markup=create_main_menu(len(session.pdfs))
+                reply_markup=create_main_menu(len(session.pdfs), session.is_merged)
             )
         else:
             await status_msg.edit_text("❗ Error removing page. Please try again.")
