@@ -11,7 +11,7 @@ from pyrogram.types import (
     InlineKeyboardButton
 )
 
-# ============= CONFIGURATION =============
+
 API_ID = os.getenv("API_ID", "YOUR_API_ID")
 API_HASH = os.getenv("API_HASH", "YOUR_API_HASH")
 BOT_TOKEN = os.getenv("BOT_TOKEN", "YOUR_BOT_TOKEN")
@@ -20,7 +20,7 @@ if API_ID == "YOUR_API_ID" or API_HASH == "YOUR_API_HASH" or BOT_TOKEN == "YOUR_
     raise ValueError("Please set API_ID, API_HASH, and BOT_TOKEN environment variables!")
 
 
-# ============= LOGGING SETUP =============
+
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
@@ -36,11 +36,11 @@ class UserSession:
         self.pdfs = []
         self.state = "idle"
         self.temp_data = {}
-        self.is_merged = False  # Track if PDFs have been merged
+        self.is_merged = False  
     
     def add_pdf(self, path: str):
         self.pdfs.append(path)
-        self.is_merged = False  # Reset merge flag when adding new PDFs
+        self.is_merged = False  
     
     def clear(self):
         """Clean up all temporary files"""
@@ -67,7 +67,6 @@ def create_main_menu(pdf_count: int, is_merged: bool = False) -> InlineKeyboardM
     buttons = []
     
     if is_merged:
-        # After merging, show download and reset options
         buttons.extend([
             [InlineKeyboardButton("📥 Download Merged PDF", callback_data="finish")],
             [InlineKeyboardButton("✂️ Remove Pages", callback_data="remove_page")],
@@ -307,7 +306,6 @@ async def handle_callback(client: Client, callback: CallbackQuery):
             )
             
             if merge_pdfs(session.pdfs, output_path):
-                # Clean up old PDFs
                 for pdf in session.pdfs:
                     try:
                         os.remove(pdf)
@@ -315,7 +313,7 @@ async def handle_callback(client: Client, callback: CallbackQuery):
                         pass
                 
                 session.pdfs = [output_path]
-                session.is_merged = True  # Mark as merged
+                session.is_merged = True  
                 page_count = get_pdf_page_count(output_path)
                 file_size = get_pdf_size_mb(output_path)
                 
@@ -377,7 +375,6 @@ async def handle_callback(client: Client, callback: CallbackQuery):
     
     except Exception as e:
         logger.error(f"Error in callback handler: {e}")
-        # Try to answer the callback if we haven't already
         try:
             await callback.answer("An error occurred", show_alert=True)
         except:
@@ -438,7 +435,6 @@ async def handle_text(client: Client, message: Message):
         await status_msg.edit_text("❗ Error removing page. Please try again.")
 
 
-# ============= MAIN EXECUTION =============
 if __name__ == "__main__":
     print("=" * 50)
     print("🤖 PDF Merger Bot - PyMuPDF Edition")
