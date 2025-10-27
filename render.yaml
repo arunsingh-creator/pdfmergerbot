@@ -1,0 +1,13 @@
+services:
+  - type: worker
+    name: pdf-merger-bot
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11
+      # Add your Telegram Bot Token here (or from Render Dashboard)
+      - key: BOT_TOKEN
+        sync: false
