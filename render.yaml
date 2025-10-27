@@ -4,10 +4,13 @@ services:
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: python bot.py
+    startCommand: python main.py
     envVars:
       - key: PYTHON_VERSION
         value: 3.11
-      # Add your Telegram Bot Token here (or from Render Dashboard)
       - key: BOT_TOKEN
+        sync: false
+      - key: API_ID
+        sync: false
+      - key: API_HASH
         sync: false
