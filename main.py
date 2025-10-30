@@ -636,7 +636,14 @@ def start_bot():
     print("🚀 Starting Telegram bot...")
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    loop.run_until_complete(app.run())
+    loop.run_until_complete(app.start())
+    print("✅ Bot started successfully!")
+    try:
+        loop.run_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        loop.run_until_complete(app.stop())
 
 if __name__ == "__main__":
     print("=" * 50)
