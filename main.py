@@ -632,14 +632,15 @@ async def handle_text(client: Client, message: Message):
 
 
 def start_bot():
-    """Start Telegram bot in a background thread (non-blocking)"""
+    """Start Telegram bot in background thread (with polling)"""
     print("🚀 Starting Telegram bot...")
 
     async def run():
         try:
             await app.start()
-            print("✅ Bot started successfully and listening for updates!")
-            await asyncio.Event().wait()  # Keeps it running forever
+            print("✅ Bot connected successfully!")
+            print("📡 Starting long polling to receive updates...")
+            await app.poll()  # Listen for updates continuously
         except Exception as e:
             print(f"❌ Error while running bot: {e}")
         finally:
