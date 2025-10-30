@@ -630,6 +630,11 @@ async def handle_text(client: Client, message: Message):
         await status_msg.edit_text("❗ Error occurred")
 
 
+def start_bot():
+    """Start the Telegram bot in background"""
+    print("🚀 Starting Telegram bot...")
+    app.run()
+
 if __name__ == "__main__":
     print("=" * 50)
     print("🤖 PDF Merger Bot - Render.com Edition")
@@ -637,12 +642,16 @@ if __name__ == "__main__":
     print("⚡ Running with Flask web server")
     print("=" * 50)
     
-    # Start Flask in background thread
-    flask_thread = Thread(target=run_flask, daemon=True)
-    flask_thread.start()
+    # Start Pyrogram bot in background thread
+    bot_thread = Thread(target=start_bot, daemon=True)
+    bot_thread.start()
     
-    print("✅ Flask server started")
-    print("🚀 Starting Telegram bot...")
+    print("✅ Bot started in background")
+    print("🌐 Starting Flask server...")
     
-    # Start Pyrogram bot
-    app.run()
+    # Start Flask (this blocks)
+    run_flask()
+else:
+    # When run via gunicorn, start bot in background
+    bot_thread = Thread(target=start_bot, daemon=True)
+    bot_thread.start()
