@@ -634,7 +634,9 @@ async def handle_text(client: Client, message: Message):
 def start_bot():
     """Start the Telegram bot in background"""
     print("🚀 Starting Telegram bot...")
-    asyncio.run(app.run())
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(app.run())
 
 if __name__ == "__main__":
     print("=" * 50)
