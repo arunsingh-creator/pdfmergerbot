@@ -1,3 +1,5 @@
 pyrofork
 tgcrypto
 PyMuPDF
+flask
+gunicorn
