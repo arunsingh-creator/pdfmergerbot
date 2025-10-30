@@ -632,41 +632,34 @@ async def handle_text(client: Client, message: Message):
 
 
 def start_bot():
-    """Start Telegram bot in background thread (with polling)"""
+    """Run Telegram bot in a separate thread safely"""
     print("🚀 Starting Telegram bot...")
 
     async def run():
         try:
             await app.start()
             print("✅ Bot connected successfully!")
-            print("📡 Starting long polling to receive updates...")
-            await app.poll()  # Listen for updates continuously
+            print("📡 Polling for new messages...")
+            await app.poll()
         except Exception as e:
-            print(f"❌ Error while running bot: {e}")
+            print(f"❌ Bot error: {e}")
         finally:
+            print("🛑 Bot shutting down...")
             await app.stop()
-            print("🛑 Bot stopped.")
 
-    asyncio.run(run())
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(run())
 
 
 if __name__ == "__main__":
     print("=" * 50)
     print("🤖 PDF Merger Bot - Render.com Edition")
     print("=" * 50)
-    print("⚡ Running with Flask web server")
-    print("=" * 50)
     
-    # Start Pyrogram bot in background thread
     bot_thread = Thread(target=start_bot, daemon=True)
     bot_thread.start()
     
     print("✅ Bot started in background")
     print("🌐 Starting Flask server...")
-    
-    # Start Flask (this blocks)
     run_flask()
-else:
-    # When run via gunicorn, start bot in background
-    bot_thread = Thread(target=start_bot, daemon=True)
-    bot_thread.start()
