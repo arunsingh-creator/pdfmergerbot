@@ -12,6 +12,7 @@ from pyrogram.types import (
 )
 from threading import Thread
 from flask import Flask
+import asyncio
 
 # Flask web server to keep Render happy
 flask_app = Flask(__name__)
